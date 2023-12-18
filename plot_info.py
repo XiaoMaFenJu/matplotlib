@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 
 import xarray as xr
 import cartopy.crs as ccrs
-import matplotlib.ticker as ticker
+import matplotlib.ticker as mticker
 from cartopy.mpl.gridliner import LONGITUDE_FORMATTER, LATITUDE_FORMATTER
 import matplotlib.colors as mcolors
 import cmaps
@@ -31,7 +31,7 @@ max_all = np.load(path_max)
 
 ###### 图像设置 ######
 # fig, axes = plt.subplots(2, 2, figsize=(5,5), dpi=150, sharex="none", sharey="none")
-####注意，如果要绘制
+####注意，如果要绘制等值线地图
 target_proj = ccrs.PlateCarree(central_longitude=180) # ERA5的配置
 data_proj = ccrs.PlateCarree(central_longitude=0)     # ERA5的配置
 fig, axes = plt.subplots(1, 1, subplot_kw={'projection': target_proj}, figsize=(5,5), dpi=50, sharex="none", sharey="none")
@@ -43,11 +43,11 @@ fig.subplots_adjust(top=0.9, bottom=0.1, right=0.9, left=0.1, hspace=0.2, wspace
 ### 保存 ###
 def Plt_save(save_path, file_name, file_format, pic_bbox=None, pad_inches=0.1):
     '''
-    save_path:最后不加/
+    save_path:最后不加/或\  (如果是\需要写成'\\')
     file_name:最后不加文件格式,
     file_format:图片格式，前面不需要加. ;支持eps, jpeg, jpg, pdf, pgf, png, ps, raw, rgba, svg, svgz, tif, tiff
     '''
-    save_all = save_path + r'/' + file_name + r'.' + file_format
+    save_all = save_path + r"\\" + file_name + r'.' + file_format
     plt.savefig(save_all, bbox_inches=pic_bbox, pad_inches=pad_inches)
     # tight:紧凑/无白(但会使dpi设置失效); pad_inches为留白量
     pass
@@ -61,8 +61,13 @@ plt.margins(0,0) # 轴内图像距离轴的距离,值范围[0,1],第一参数表
 ax = plt.subplot2grid((2,2),(1,0),colspan=2,rowspan=1) # 合并子图[放在Plot函数前]
 # 几行几列 起始行列 colspan列 rowspan行:即图像占的区域（默认1x1）
 
-ax = fig.add_axes([left, bottom, width, height]) #添加任意位置及大小[放在Plot函数前]
+####如果要实现单独设置每一张图
+fig = plt.figure(figsize=(5,5), dpi=50)
+ax = fig.add_axes([left, bottom, width, height], projection=target_proj) #添加任意位置及大小[放在Plot函数前]
 left, bottom, width, height = 0.1, 0.1, 0.8, 0.8  #左下点坐标及图像长宽，数值为figure百分比
+chartBox = ax.get_position()
+x, y, w, h = chartBox.x0, chartBox.y0, chartBox.width, chartBox.height
+print(x,y,w,h) # 通过chartbox查看ax的位置参数，从而便于设置不同ax大小相同
 '''
 
 ###### 折线图 ######
@@ -119,30 +124,34 @@ def Plot_plot(ax, x, y1, y2):
     return ax, pl1, pl2
 
 ###### 等值线填色图叠加地图投影 ######
-def Plot_contourf(ax, lat, lon, data, data_proj, cmap='viridis'):
+def Plot_contourf(ax, lat, lon, data, data_proj,title='title',cmap='viridis'):
     cn = ax.contourf(lon, lat, data, transform=data_proj, extend='both', cmap=cmap)
-    # cn = ax.contourf(lon, lat, data, transform=data_proj, extend='both', cmap=cmap, level=level,
+    # cn = ax.contourf(lon, lat, data, transform=data_proj, extend='both', cmap=cmap, levels=level)
+    # cn = ax.contourf(lon, lat, data, transform=data_proj, extend='both', cmap=cmap, levels=level,
     #                ,norm=mcolors.TwoSlopeNorm(vmin=level[0], vmax=level[-1], vcenter=0)) #设置以0为中心的非对称colorbar
+    # 可选参数:alpha 透明度
+
     ax.coastlines(resolution='50m', lw=0.5)  # resolution='50m'、'110m'、'10m' # 添加海岸线
     ax.set_global()
-    ax.set_title('我是ax的title',font = {'family': 'Microsoft YaHei', 'size': 9})
+    ax.set_title(title,font = {'family': 'Microsoft YaHei', 'size': 9})
 
     gl = ax.gridlines(draw_labels=True, linestyle="--", linewidth=0.3, color='k', alpha=0.5)
     gl.top_labels = False  # 关闭上部经纬标签
     gl.right_labels = False
     gl.xformatter = LONGITUDE_FORMATTER  # 使横坐标转化为经纬度格式
     gl.yformatter = LATITUDE_FORMATTER
-    gl.xlocator = ticker.FixedLocator(np.arange(-180, 180, 60)) # 经纬度范围
-    gl.ylocator = ticker.FixedLocator(np.arange(-90, 90, 30))
+    gl.xlocator = mticker.FixedLocator(np.arange(-180, 180, 60)) # 经纬度范围
+    gl.ylocator = mticker.FixedLocator(np.arange(-90, 90, 30))
     gl.xlabel_style = {'size': 9}  # 修改经纬度字体大小
     gl.ylabel_style = {'size': 9}
     # gl.xlines = False # 关闭经向网格线
 
-    cb3 = plt.colorbar(cn, ax=ax, fraction=0.03)
-    cb3.ax.tick_params(labelsize=4)
-    # cb3.set_ticks(level)
-    cb3.update_ticks()
-    return ax, cn
+    cb = plt.colorbar(cn, ax=ax, fraction=0.03, orientation='horizontal')#默认垂直,这个是水平
+    cb.ax.tick_params(labelsize=15)
+    # cb.set_ticks(level)
+    # cb.set_ticklabels(level.astype(str).tolist())
+    # cb.update_ticks() # 可能没用？
+    return ax, cn, cb
 
-Plot_contourf(axes,lat,lon,max_all[0,0,:,:],data_proj)
+# Plot_contourf(axes,lat,lon,max_all[0,0,:,:],data_proj)
 plt.show()
