@@ -35,8 +35,8 @@ max_all = np.load(path_max)
 target_proj = ccrs.PlateCarree(central_longitude=180) # ERA5的配置
 data_proj = ccrs.PlateCarree(central_longitude=0)     # ERA5的配置
 fig, axes = plt.subplots(1, 1, subplot_kw={'projection': target_proj}, figsize=(5,5), dpi=50, sharex="none", sharey="none")
-
 # sharex/y:all col row none 共享x/y轴[注意大小写]; 调用ax:axes[1,0]
+
 fig.subplots_adjust(top=0.9, bottom=0.1, right=0.9, left=0.1, hspace=0.2, wspace=0.2)
 # top,bottom,left,right 可以认为是所有图像的分布范围,1,0,1,0设置表示完全不留白 hspace:列子图间距 wspace:行子图间距
 
@@ -47,9 +47,12 @@ def Plt_save(save_path, file_name, file_format, pic_bbox=None, pad_inches=0.1):
     file_name:最后不加文件格式,
     file_format:图片格式，前面不需要加. ;支持eps, jpeg, jpg, pdf, pgf, png, ps, raw, rgba, svg, svgz, tif, tiff
     '''
+    # fig.subplots_adjust(top=1, bottom=0, right=1, left=0)
+    # plt.margins(0, 0)
+    # 不想留白又想保证dpi请启用上面两句
     save_all = save_path + r"\\" + file_name + r'.' + file_format
     plt.savefig(save_all, bbox_inches=pic_bbox, pad_inches=pad_inches)
-    # tight:紧凑/无白(但会使dpi设置失效); pad_inches为留白量
+    # tight:紧凑/无白(但会使dpi设置失效)、pad_inches为tight时的留白量
     pass
 ############
 
@@ -71,6 +74,12 @@ print(x,y,w,h) # 通过chartbox查看ax的位置参数，从而便于设置不�
 '''
 
 ###### 折线图 ######
+# 很奇怪,如果要画折线图除非用以下,不然会报错....?
+# 20231230更新:如果遇到Cannot mix incompatible Qt library问题,请卸载qt及所有相关库后重装matplotlib
+'''
+fig = plt.figure(figsize=(5,5),dpi=50)
+axes = fig.subplots(2,2)
+'''
 def Plot_plot(ax, x, y1, y2):
     '''
     允许大家根据自己需求配置相应函数参数，几个y啦，对应的label啦，title啦....
@@ -146,12 +155,60 @@ def Plot_contourf(ax, lat, lon, data, data_proj,title='title',cmap='viridis'):
     gl.ylabel_style = {'size': 9}
     # gl.xlines = False # 关闭经向网格线
 
+    # colorbar设置
     cb = plt.colorbar(cn, ax=ax, fraction=0.03, orientation='horizontal')#默认垂直,这个是水平
     cb.ax.tick_params(labelsize=15)
+    # cb.set_label('colorbar的label', font={'family': 'Microsoft YaHei', 'size': 11}, loc='top')
+    # cb.ax.set_title('colorbar的label', font={'family': 'Microsoft YaHei', 'size': 11})
     # cb.set_ticks(level)
     # cb.set_ticklabels(level.astype(str).tolist())
     # cb.update_ticks() # 可能没用？
+
+    # 也可以手动给colorbar设置单独axe,具体如下:
+    # cax = fig.add_axes([ax.get_position().x1 + 0.01, ax.get_position().y0, 0.02, ax.get_position().height])
+    # # x0,x1,y0,y1分别为xmin,xmax,ymin,ymax
+    # # ax = fig.add_axes([left, bottom, width, height], projection=target_proj) #添加任意位置及大小[放在Plot函数前]
+    # # left, bottom, width, height = 0.1, 0.1, 0.8, 0.8  #左下点坐标及图像长宽，数值为figure百分比
+    # cb = plt.colorbar(cn, cax=cax)
     return ax, cn, cb
 
 # Plot_contourf(axes,lat,lon,max_all[0,0,:,:],data_proj)
 plt.show()
+
+
+###### 杂七杂八的函数 ######
+def Area_Mean(data, lat, lon):
+    '''
+    by XiaoMaFenJu
+    data: 要进行区域加权平均的变量，支持2、3维  2D: [lat, lon]  3D：[time, lat, lon]
+    lat: data2D对应的纬度 1D
+    lon: data2D对应的经度 1D
+    '''
+
+    if data.ndim == 2:
+        y_weight2D = abs(np.cos(lat*np.pi/180))
+        weight2D = np.expand_dims(y_weight2D, 1).repeat(len(lon), axis=1)
+        # print(weight2D)
+        new_data = np.average(data, weights=weight2D)
+        return new_data
+    elif data.ndim == 3:
+        y_weight2D = abs(np.cos(lat*np.pi/180))
+        weight2D = np.expand_dims(y_weight2D, 1).repeat(len(lon), axis=1)
+        weight3D = np.expand_dims(weight2D,0).repeat(len(data[:,0,0]),axis=0)
+        new_data = np.average(data, weights=weight3D, axis=(-1, -2))
+        return new_data
+    else:
+        print('输入数据非2&3维')
+        pass
+    pass
+def UTC_process(data):
+    '''
+    仅接受三维数组传入，格式应为time*lat*lon
+    '''
+    data_local = data.copy()
+    for i in range(23):
+        data_local[:,30+60*i:30+60*(i+1)] = data[:,30+60*i:30+60*(i+1)] + i + 1
+        pass
+    data_local[data_local >= 24] -= 24
+
+    return data_local
