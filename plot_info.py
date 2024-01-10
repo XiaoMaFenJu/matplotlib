@@ -40,20 +40,6 @@ fig, axes = plt.subplots(1, 1, subplot_kw={'projection': target_proj}, figsize=(
 fig.subplots_adjust(top=0.9, bottom=0.1, right=0.9, left=0.1, hspace=0.2, wspace=0.2)
 # top,bottom,left,right 可以认为是所有图像的分布范围,1,0,1,0设置表示完全不留白 hspace:列子图间距 wspace:行子图间距
 
-### 保存 ###
-def Plt_save(save_path, file_name, file_format, pic_bbox=None, pad_inches=0.1):
-    '''
-    save_path:最后不加/或\  (如果是\需要写成'\\')
-    file_name:最后不加文件格式,
-    file_format:图片格式，前面不需要加. ;支持eps, jpeg, jpg, pdf, pgf, png, ps, raw, rgba, svg, svgz, tif, tiff
-    '''
-    # fig.subplots_adjust(top=1, bottom=0, right=1, left=0)
-    # plt.margins(0, 0)
-    # 不想留白又想保证dpi请启用上面两句
-    save_all = save_path + r"\\" + file_name + r'.' + file_format
-    plt.savefig(save_all, bbox_inches=pic_bbox, pad_inches=pad_inches)
-    # tight:紧凑/无白(但会使dpi设置失效)、pad_inches为tight时的留白量
-    pass
 ############
 
 '''# 可选设置
@@ -63,6 +49,10 @@ plt.margins(0,0) # 轴内图像距离轴的距离,值范围[0,1],第一参数表
 
 ax = plt.subplot2grid((2,2),(1,0),colspan=2,rowspan=1) # 合并子图[放在Plot函数前]
 # 几行几列 起始行列 colspan列 rowspan行:即图像占的区域（默认1x1）
+
+多图共用一个标题/xylabel也可使用:
+fig.text(0, 0.5, 'ylabel', va='center', rotation='vertical', font = {'family': 'Microsoft YaHei', 'size': 9})
+fig.text(0.5, 0, 'xlabel', ha='center', font={'family': 'Microsoft YaHei', 'size': 9})
 
 ####如果要实现单独设置每一张图
 fig = plt.figure(figsize=(5,5), dpi=50)
@@ -76,6 +66,7 @@ print(x,y,w,h) # 通过chartbox查看ax的位置参数，从而便于设置不�
 ###### 折线图 ######
 # 很奇怪,如果要画折线图除非用以下,不然会报错....?
 # 20231230更新:如果遇到Cannot mix incompatible Qt library问题,请卸载qt及所有相关库后重装matplotlib
+#              因此不需要用以下内容，仍然用图像设置的内容就可以了
 '''
 fig = plt.figure(figsize=(5,5),dpi=50)
 axes = fig.subplots(2,2)
@@ -88,7 +79,8 @@ def Plot_plot(ax, x, y1, y2):
     ax.patch.set_facecolor('k') # ax的背景色
     ax.patch.set_alpha(0.5)  # ax的背景透明度，0是完全透明
 
-    ax.spines['top'].set_visible(False) # 去掉ax边框 'top','bottom','left','right'
+    # ax.axis('off')  # 去掉所有边框
+    ax.spines['top'].set_visible(False) # 去掉指定ax边框 'top','bottom','left','right'
     ax.spines['right'].set_color('none') # ax边框颜色 'none'表示无色/透明
     ax.xaxis.set_ticks_position('bottom') # 带tick的x边框（或者说x轴）在上/下 'top'/'bottom';y轴改成yaxis
     ax.spines['left'].set_position(('data', -1)) # 边框位置在data处 'top','bottom','left','right'
@@ -109,16 +101,18 @@ def Plot_plot(ax, x, y1, y2):
     ax.set_yticklabels(np.arange(0, 24, 6))
     ax.set_ylabel(r'我是ylabel',font = {'family': 'Microsoft YaHei', 'size': 9})
 
-    ax.set_title(r'我是ax_title',font = {'family': 'Microsoft YaHei', 'size': 11})
+    ax.set_title(r'我是ax_title',font = {'family': 'Microsoft YaHei', 'size': 11},y=1, loc='center')
 
     ### return 处也需要同步更改
     pl1, = ax.plot(x, y1, label = 'line1',color='red',linewidth = 1.0,linestyle = '--')
     pl2, = ax.plot(x, y2, label = 'line2',color='blue',linewidth = 2.0,linestyle = '--')
 
-    ax.legend(handles=[pl1, pl2], fontsize=7, loc='best', ncol=2) # 图例设置
+    lgfont = {'family': 'Microsoft YaHei', 'size': 11}
+    lg = ax.legend(handles=[pl1, pl2], fontsize=7, loc='best', ncol=2, frameon=False, prop=lgfont) # 图例设置
     '''
     'upper right', 'upper left', 'lower left', 'lower right', 'right',
     'center left', 'center right', 'lower center', 'upper center', 'center'
+    loc=(x,y)适合多图只用一个,xy是ax中的legend左下角位置-[0,1]
     2、borderpad：图例的内边距 ，None或者float。
     3、fontsize：int或float，用于设置字体大小。
     4、frameon： 是否显示图例边框，None或者bool。=False也可以
@@ -133,11 +127,11 @@ def Plot_plot(ax, x, y1, y2):
     return ax, pl1, pl2
 
 ###### 等值线填色图叠加地图投影 ######
-def Plot_contourf(ax, lat, lon, data, data_proj,title='title',cmap='viridis'):
+def Plot_contourf(ax, lat, lon, data, data_proj,title='title',cmap='viridis', level=np.arange(0,1,1)):
     cn = ax.contourf(lon, lat, data, transform=data_proj, extend='both', cmap=cmap)
     # cn = ax.contourf(lon, lat, data, transform=data_proj, extend='both', cmap=cmap, levels=level)
     # cn = ax.contourf(lon, lat, data, transform=data_proj, extend='both', cmap=cmap, levels=level,
-    #                ,norm=mcolors.TwoSlopeNorm(vmin=level[0], vmax=level[-1], vcenter=0)) #设置以0为中心的非对称colorbar
+    #                norm=mcolors.TwoSlopeNorm(vmin=level[0], vmax=level[-1], vcenter=0)) #设置以0为中心的非对称colorbar
     # 可选参数:alpha 透明度
 
     ax.coastlines(resolution='50m', lw=0.5)  # resolution='50m'、'110m'、'10m' # 添加海岸线
@@ -174,7 +168,20 @@ def Plot_contourf(ax, lat, lon, data, data_proj,title='title',cmap='viridis'):
 
 # Plot_contourf(axes,lat,lon,max_all[0,0,:,:],data_proj)
 plt.show()
-
+### 保存 ###
+def Plt_save(save_path, file_name, file_format, pic_bbox=None, pad_inches=0.1):
+    '''
+    save_path:最后不加/或\  (如果是\需要写成'\\')
+    file_name:最后不加文件格式,
+    file_format:图片格式，前面不需要加. ;支持eps, jpeg, jpg, pdf, pgf, png, ps, raw, rgba, svg, svgz, tif, tiff
+    '''
+    # fig.subplots_adjust(top=1, bottom=0, right=1, left=0)
+    # plt.margins(0, 0)
+    # 不想留白又想保证dpi请启用上面两句
+    save_all = save_path + r"\\" + file_name + r'.' + file_format
+    plt.savefig(save_all, bbox_inches=pic_bbox, pad_inches=pad_inches)
+    # tight:紧凑/无白(但会使dpi设置失效)、pad_inches为tight时的留白量
+    pass
 
 ###### 杂七杂八的函数 ######
 def Area_Mean(data, lat, lon):
